@@ -82,7 +82,9 @@ def generate_commit_message(diff: str, llm_client: OpenAI) -> str:
     if commit_message is None:
         print("Error: Received empty response from OpenAI API", file=sys.stderr)
         sys.exit(1)
-    return commit_message.strip()
+    # Remove any backticks (single or triple) that might wrap the commit message
+    cleaned_message = commit_message.strip().strip("`")
+    return cleaned_message
 
 
 def llm_commit(api_key: str):
