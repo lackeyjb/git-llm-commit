@@ -1,0 +1,20 @@
+[project]
+name = "git-llm-commit"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "syntax-sherlock", email = "syntax-sherlock@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.61.0",
+    "python-dotenv>=1.0.1",
+]
+
+[project.scripts]
+git-llm-commit = "git_llm_commit:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
