@@ -1,7 +1,7 @@
 [project]
 name = "git-llm-commit"
 version = "0.1.0"
-description = "Add your description here"
+description = "Generate Conventional Commit messages from your staged changes using an LLM (GPT-4)"
 readme = "README.md"
 authors = [
     { name = "syntax-sherlock", email = "syntax-sherlock@users.noreply.github.com" }
