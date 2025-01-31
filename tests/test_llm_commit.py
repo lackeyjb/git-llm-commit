@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
-from git_llm_commit.llm_commit import get_staged_diff, generate_commit_message
+from git_llm_commit.llm_commit import GitCommandLine, CommitMessageGenerator, CommitConfig
 
 # Test data
 SAMPLE_DIFF = """diff --git a/test.py b/test.py
@@ -17,22 +17,23 @@ index 1234567..89abcdef 100644
 
 SAMPLE_COMMIT_MESSAGE = "feat: add new greeting function"
 
-def test_get_staged_diff_success():
+def test_get_diff_success():
+    git = GitCommandLine()
     with patch('subprocess.check_output') as mock_check_output:
         mock_check_output.return_value = SAMPLE_DIFF
-        result = get_staged_diff()
+        result = git.get_diff()
         assert result == SAMPLE_DIFF
         mock_check_output.assert_called_once_with(
             ["git", "diff", "--cached"],
             universal_newlines=True
         )
 
-def test_get_staged_diff_error():
+def test_get_diff_error():
+    git = GitCommandLine()
     with patch('subprocess.check_output') as mock_check_output:
         mock_check_output.side_effect = subprocess.CalledProcessError(1, 'cmd')
-        with pytest.raises(SystemExit) as exc_info:
-            get_staged_diff()
-        assert exc_info.value.code == 1
+        with pytest.raises(RuntimeError):
+            git.get_diff()
 
 def test_generate_commit_message():
     # Create a mock OpenAI client
@@ -58,7 +59,9 @@ def test_generate_commit_message():
     
     mock_client.chat.completions.create.return_value = mock_response
 
-    result = generate_commit_message(SAMPLE_DIFF, mock_client)
+    config = CommitConfig()
+    generator = CommitMessageGenerator(mock_client, config)
+    result = generator.generate(SAMPLE_DIFF)
     assert result == SAMPLE_COMMIT_MESSAGE
 
     # Verify the API was called with correct parameters
@@ -75,6 +78,7 @@ def test_generate_commit_message_api_error():
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = Exception("API Error")
     
-    with pytest.raises(SystemExit) as exc_info:
-        generate_commit_message(SAMPLE_DIFF, mock_client)
-    assert exc_info.value.code == 1
+    config = CommitConfig()
+    generator = CommitMessageGenerator(mock_client, config)
+    with pytest.raises(RuntimeError):
+        generator.generate(SAMPLE_DIFF)
