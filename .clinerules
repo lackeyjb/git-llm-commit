@@ -1,0 +1,6 @@
+- Strictly adhere to the following principles:
+  - SOLID principles
+  - YAGNI (You Aren't Gonna Need It)
+  - KISS (Keep it Simple, Stupid)
+- Always write tests for new code or code changes
+- Use types everywhere possible
