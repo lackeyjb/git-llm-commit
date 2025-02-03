@@ -1,5 +1,7 @@
 # git-llm-commit
 
+![Coverage](./coverage.svg)
+
 Generate Conventional Commit messages from your staged changes using an LLM (GPT-4).
 
 ## Description
@@ -29,11 +31,13 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 ## Usage
 
 1. Stage your changes as usual:
+
    ```bash
    git add .
    ```
 
 2. Instead of `git commit`, run:
+
    ```bash
    git llm-commit
    ```
