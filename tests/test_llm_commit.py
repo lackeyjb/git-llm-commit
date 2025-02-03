@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import pytest
 from unittest.mock import patch, MagicMock
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
@@ -10,6 +11,7 @@ from git_llm_commit.llm_commit import (
     CommitMessageEditor,
     prompt_user,
     CONVENTIONAL_COMMIT_TYPES,
+    llm_commit,
 )
 
 # Test data
@@ -62,6 +64,18 @@ def test_get_diff_error():
             git.get_diff()
 
 
+def test_get_editor_no_stdout():
+    """Test git editor retrieval when stdout is None"""
+    git = GitCommandLine()
+    with patch("subprocess.Popen") as mock_popen:
+        mock_process = MagicMock()
+        mock_process.stdout = None
+        mock_popen.return_value = mock_process
+
+        with pytest.raises(RuntimeError, match="Failed to get git editor"):
+            git.get_editor()
+
+
 def test_get_editor_success():
     """Test successful git editor retrieval"""
     git = GitCommandLine()
@@ -92,6 +106,32 @@ def test_commit_execution():
     with patch("subprocess.run") as mock_run:
         git.commit(SAMPLE_COMMIT_MESSAGE)
         mock_run.assert_called_once_with(["git", "commit", "-m", SAMPLE_COMMIT_MESSAGE])
+
+
+def test_generate_commit_message_with_backticks():
+    """Test commit message generation with backticks in response"""
+    mock_client = MagicMock()
+    mock_response = ChatCompletion(
+        id="mock-id",
+        choices=[
+            Choice(
+                index=0,
+                message=ChatCompletionMessage(
+                    content="`" + SAMPLE_COMMIT_MESSAGE + "`", role="assistant"
+                ),
+                finish_reason="stop",
+            )
+        ],
+        created=1234567890,
+        model="gpt-4-turbo",
+        object="chat.completion",
+    )
+    mock_client.chat.completions.create.return_value = mock_response
+
+    config = CommitConfig()
+    generator = CommitMessageGenerator(mock_client, config)
+    result = generator.generate(SAMPLE_DIFF)
+    assert result == SAMPLE_COMMIT_MESSAGE
 
 
 def test_generate_commit_message():
@@ -239,3 +279,240 @@ def test_prompt_user(monkeypatch):
     # Test invalid response followed by valid response
     assert prompt_user("test message") == "invalid"
     assert prompt_user("test message") == "y"
+
+
+def test_llm_commit_happy_path():
+    """Test successful commit workflow with immediate acceptance"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+        patch("builtins.print") as mock_print,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="gpt-4-turbo",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        mock_prompt.return_value = "y"
+
+        # Execute
+        llm_commit("fake-api-key")
+
+        # Verify
+        mock_git_instance.get_diff.assert_called_once()
+        mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
+        mock_prompt.assert_called_once()
+
+
+def test_llm_commit_empty_diff():
+    """Test handling of empty git diff"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("builtins.print") as mock_print,
+        patch("sys.exit") as mock_exit,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = "   "  # Empty or whitespace diff
+        mock_git.return_value = mock_git_instance
+
+        # Mock sys.exit to prevent actual exit
+        mock_exit.side_effect = SystemExit
+
+        # Execute and verify it raises SystemExit
+        with pytest.raises(SystemExit):
+            llm_commit("fake-api-key")
+
+        # Verify the correct message was printed
+        mock_print.assert_called_with(
+            "No staged changes found. Please stage your changes and try again."
+        )
+        mock_exit.assert_called_once_with(0)
+
+
+def test_llm_commit_abort():
+    """Test commit workflow when user aborts"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+        patch("builtins.print") as mock_print,
+        patch("sys.exit") as mock_exit,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="gpt-4-turbo",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        mock_prompt.return_value = "n"
+        mock_exit.side_effect = SystemExit
+
+        # Execute and verify it raises SystemExit
+        with pytest.raises(SystemExit):
+            llm_commit("fake-api-key")
+
+        # Verify
+        mock_print.assert_called_with("Commit aborted.")
+        mock_exit.assert_called_with(0)
+        mock_git_instance.commit.assert_not_called()
+
+
+def test_llm_commit_edit_flow():
+    """Test commit workflow with message editing"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+        patch("git_llm_commit.llm_commit.CommitMessageEditor") as mock_editor,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git_instance.get_editor.return_value = "vim"
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="gpt-4-turbo",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        mock_editor_instance = MagicMock()
+        edited_message = "feat(core): improved greeting function"
+        mock_editor_instance.edit_message.return_value = edited_message
+        mock_editor.return_value = mock_editor_instance
+
+        # Simulate edit then accept flow
+        mock_prompt.side_effect = ["e", "y"]
+
+        # Execute
+        llm_commit("fake-api-key")
+
+        # Verify
+        mock_git_instance.get_editor.assert_called_once()
+        mock_editor_instance.edit_message.assert_called_once_with(
+            SAMPLE_COMMIT_MESSAGE, "vim"
+        )
+        mock_git_instance.commit.assert_called_once_with(edited_message)
+        assert mock_prompt.call_count == 2
+
+
+def test_llm_commit_invalid_input_flow():
+    """Test commit workflow with invalid input followed by valid input"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+        patch("builtins.print") as mock_print,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="gpt-4-turbo",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        # Simulate invalid input followed by valid input
+        mock_prompt.side_effect = ["x", "y"]
+
+        # Execute
+        llm_commit("fake-api-key")
+
+        # Verify
+        assert mock_prompt.call_count == 2
+        mock_print.assert_any_call(
+            "Please enter 'y' to commit, 'n' to abort, or 'e' to edit the message."
+        )
+        mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
+
+
+def test_llm_commit_runtime_error():
+    """Test handling of runtime errors in commit workflow"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("builtins.print") as mock_print,
+        patch("sys.exit") as mock_exit,
+    ):
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.side_effect = RuntimeError("Git error")
+        mock_git.return_value = mock_git_instance
+
+        # Mock sys.exit to prevent actual exit
+        mock_exit.side_effect = SystemExit
+
+        # Execute and verify it raises SystemExit
+        with pytest.raises(SystemExit):
+            llm_commit("fake-api-key")
+
+        # Verify error handling
+        mock_print.assert_called_with("Error: Git error", file=sys.stderr)
+        mock_exit.assert_called_with(1)

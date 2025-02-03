@@ -27,8 +27,7 @@ def get_api_key() -> str:
     """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("Error: OPENAI_API_KEY environment variable is not set.", file=sys.stderr)
-        sys.exit(1)
+        raise EnvironmentError("OPENAI_API_KEY environment variable is not set.")
     return api_key
 
 
