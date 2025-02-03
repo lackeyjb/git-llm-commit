@@ -54,6 +54,7 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 - Supports interactive editing of generated messages
 - Integrates with your default git editor
 - Respects conventional commit types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+- Detects potentially risky files (like .env, credentials, secrets) and prompts for confirmation before committing
 
 ## Requirements
 
