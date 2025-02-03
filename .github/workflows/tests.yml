@@ -34,11 +34,11 @@ jobs:
 
       - name: Commit and push badge
         env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_PAT: ${{ secrets.PAT_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git
+          git remote set-url origin https://${GITHUB_PAT}@github.com/${{ github.repository }}.git
           git add coverage.svg
           git commit -m "Update coverage badge" || echo "No changes to commit"
           git push origin main
