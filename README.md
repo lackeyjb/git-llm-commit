@@ -1,6 +1,6 @@
 # git-llm-commit
 
-![Coverage](./coverage.svg)
+[![codecov](https://codecov.io/github/syntax-sherlock/git-llm-commit/graph/badge.svg?token=YZECGT1JIF)](https://codecov.io/github/syntax-sherlock/git-llm-commit)
 
 Generate Conventional Commit messages from your staged changes using an LLM (GPT-4).
 
