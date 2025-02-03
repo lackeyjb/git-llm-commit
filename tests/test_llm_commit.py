@@ -591,6 +591,84 @@ def test_llm_commit_invalid_input_flow():
         mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
 
 
+def test_llm_commit_abort_with_risky_files():
+    """Test commit abort when risky files are present and user declines"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.prompt_risky_files") as mock_prompt_risky,
+        patch("builtins.print") as mock_print,
+        patch("sys.exit") as mock_exit,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_staged_files.return_value = SAMPLE_STAGED_FILES
+        mock_git.return_value = mock_git_instance
+
+        # User declines to proceed with risky files
+        mock_prompt_risky.return_value = False
+
+        # Mock sys.exit to prevent actual exit
+        mock_exit.side_effect = SystemExit
+
+        # Execute and verify it raises SystemExit
+        with pytest.raises(SystemExit):
+            llm_commit("fake-api-key")
+
+        # Verify
+        mock_git_instance.get_staged_files.assert_called_once()
+        mock_prompt_risky.assert_called_once()
+        mock_print.assert_called_with("Commit aborted.")
+        mock_exit.assert_called_with(1)
+        mock_git_instance.commit.assert_not_called()
+
+
+def test_llm_commit_no_prompt_without_risky_files():
+    """Test no risky file prompt when no risky files present"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.prompt_risky_files") as mock_prompt_risky,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_staged_files.return_value = [
+            "src/app.py",
+            "test/test_app.py",
+        ]  # No risky files
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="gpt-4-turbo",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        mock_prompt.return_value = "y"
+
+        # Execute
+        llm_commit("fake-api-key")
+
+        # Verify
+        mock_git_instance.get_staged_files.assert_called_once()
+        mock_prompt_risky.assert_not_called()  # Should not prompt for risky files
+        mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
+
+
 def test_llm_commit_runtime_error():
     """Test handling of runtime errors in commit workflow"""
     with (
