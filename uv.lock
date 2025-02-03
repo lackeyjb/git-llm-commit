@@ -61,8 +61,8 @@ dependencies = [
     { name = "python-dotenv" },
 ]
 
-[package.optional-dependencies]
-test = [
+[package.dev-dependencies]
+dev = [
     { name = "pytest" },
 ]
 
@@ -70,9 +70,11 @@ test = [
 requires-dist = [
     { name = "openai", specifier = ">=1.61.0" },
     { name = "pytest", specifier = ">=8.3.4" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=7.4.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.3.4" }]
 
 [[package]]
 name = "h11"

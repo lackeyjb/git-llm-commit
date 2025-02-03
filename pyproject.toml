@@ -7,18 +7,14 @@ authors = [
     { name = "syntax-sherlock", email = "syntax-sherlock@users.noreply.github.com" },
 ]
 requires-python = ">=3.12"
-dependencies = [
-    "openai>=1.61.0",
-    "pytest>=8.3.4",
-    "python-dotenv>=1.0.1",
-]
+dependencies = ["openai>=1.61.0", "python-dotenv>=1.0.1"]
 
 [project.scripts]
 git-llm-commit = "git_llm_commit:main"
 
-[project.optional-dependencies]
-test = ["pytest>=7.4.0"]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8.3.4", "pytest-cov>=5.0.0"]
