@@ -1,7 +1,9 @@
 import os
-import pytest
 from unittest.mock import patch
-from git_llm_commit import get_api_key, main, EnvironmentError
+
+import pytest
+
+from git_llm_commit import EnvironmentError, get_api_key, main
 
 
 def test_get_api_key_success():

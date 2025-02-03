@@ -7,6 +7,7 @@ Usage:
 """
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -46,6 +47,38 @@ class GitCommand(Protocol):
     def get_diff(self) -> str: ...
     def get_editor(self) -> str: ...
     def commit(self, message: str) -> None: ...
+    def get_staged_files(self) -> list[str]: ...
+
+
+class RiskyFileDetector:
+    """Detects potentially risky files in staged changes"""
+
+    DEFAULT_PATTERNS = [
+        r"\.env$",
+        r"\.secret$",
+        r"credentials.*",
+        r".*_key$",
+        r"secrets?\.(yml|yaml|json|toml)$",
+    ]
+
+    def detect_risky_files(self, files: list[str]) -> list[str]:
+        """
+        Check for potentially risky files in the staged changes.
+
+        Args:
+            files: List of staged file paths
+
+        Returns:
+            List of file paths that match risky patterns
+        """
+
+        risky_files = []
+        for file in files:
+            for pattern in self.DEFAULT_PATTERNS:
+                if re.search(pattern, file):
+                    risky_files.append(file)
+                    break
+        return risky_files
 
 
 class GitCommandLine:
@@ -73,6 +106,16 @@ class GitCommandLine:
     def commit(self, message: str) -> None:
         subprocess.run(["git", "commit", "-m", message])
 
+    def get_staged_files(self) -> list[str]:
+        """Get list of staged files"""
+        try:
+            output = subprocess.check_output(
+                ["git", "diff", "--cached", "--name-only"], universal_newlines=True
+            )
+            return [f for f in output.splitlines() if f]
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError("Unable to get staged files") from e
+
 
 class CommitMessageGenerator:
     """Generates commit messages using OpenAI's API"""
@@ -83,7 +126,11 @@ class CommitMessageGenerator:
 
     def generate(self, diff: str) -> str:
         system_message = self._get_system_message()
-        user_message = f"Git diff:\n\n{diff}\n\nGenerate a commit message following the Conventional Commits specification:"
+        user_message = (
+            f"Git diff:\n\n{diff}\n\n"
+            "Generate a commit message following the Conventional Commits "
+            "specification:"
+        )
 
         try:
             response = self.llm_client.chat.completions.create(
@@ -96,7 +143,8 @@ class CommitMessageGenerator:
                 max_tokens=self.config.max_tokens,
             )
         except Exception as e:
-            raise RuntimeError(f"Error calling OpenAI API: {e}") from e
+            error_msg = f"Error calling OpenAI API: {e}"
+            raise RuntimeError(error_msg) from e
 
         if not response.choices[0].message.content:
             raise RuntimeError("Received empty response from OpenAI API")
@@ -105,18 +153,24 @@ class CommitMessageGenerator:
 
     def _get_system_message(self) -> str:
         return (
-            "You are a commit message generator that strictly follows the Conventional Commits specification. "
-            "Given a git diff, generate a commit message that adheres to the following format:\n\n"
+            "You are a commit message generator that strictly follows the Conventional "
+            "Commits specification. "
+            "Given a git diff, generate a commit message that adheres to the following "
+            "format:\n\n"
             "  <type>[optional scope]: <description>\n\n"
             "  [optional body]\n\n"
             "  [optional footer(s)]\n\n"
             "Where:\n"
             f"  - type is one of: {', '.join(CONVENTIONAL_COMMIT_TYPES)}.\n"
-            "  - scope is optional and should be included if it clarifies the affected area of code.\n"
+            "  - scope is optional and should be included if it clarifies the affected "
+            "area of code.\n"
             "  - The description is a concise summary of the change.\n"
-            "  - The body (if provided) explains the reasoning and details of the change.\n"
-            "  - Footers (if applicable) may include BREAKING CHANGE information or issue references.\n\n"
-            "Ensure that the commit message comprehensively and accurately reflects all changes shown in the diff."
+            "  - The body (if provided) explains the reasoning and details of the "
+            "change.\n"
+            "  - Footers (if applicable) may include BREAKING CHANGE information or "
+            "issue references.\n\n"
+            "Ensure that the commit message comprehensively and accurately reflects all"
+            " changes shown in the diff."
         )
 
 
@@ -130,7 +184,7 @@ class CommitMessageEditor:
 
         try:
             subprocess.call([editor, tmp_path])
-            with open(tmp_path, "r") as tmp:
+            with open(tmp_path) as tmp:
                 return tmp.read()
         finally:
             os.unlink(tmp_path)
@@ -145,6 +199,14 @@ def prompt_user(message: str) -> str:
     return input("\nDo you want to commit with this message? (y/n/e[dit]): ").lower()
 
 
+def prompt_risky_files(files: list[str]) -> bool:
+    """Prompt user about risky files and return whether to proceed"""
+    print("\nPotentially risky files staged:")
+    for file in files:
+        print(f"  - {file}")
+    return input("\nCommit anyway? (y/N): ").lower().startswith("y")
+
+
 def llm_commit(api_key: str) -> None:
     """Main function to handle the commit process"""
     git = GitCommandLine()
@@ -154,9 +216,20 @@ def llm_commit(api_key: str) -> None:
     editor = CommitMessageEditor()
 
     try:
+        # Check for risky files first
+        staged_files = git.get_staged_files()
+        detector = RiskyFileDetector()
+        risky_files = detector.detect_risky_files(staged_files)
+
+        if risky_files and not prompt_risky_files(risky_files):
+            print("Commit aborted.")
+            sys.exit(1)
+
+        # Proceed with normal commit flow
         diff = git.get_diff()
         if not diff.strip():
-            print("No staged changes found. Please stage your changes and try again.")
+            msg = "No staged changes found. Please stage your changes and try again."
+            print(msg)
             sys.exit(0)
 
         commit_message = generator.generate(diff)
@@ -176,7 +249,8 @@ def llm_commit(api_key: str) -> None:
                 continue
             else:
                 print(
-                    "Please enter 'y' to commit, 'n' to abort, or 'e' to edit the message."
+                    "Please enter 'y' to commit, 'n' to abort, or 'e' to edit the "
+                    "message."
                 )
 
     except RuntimeError as e:

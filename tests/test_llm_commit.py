@@ -1,17 +1,20 @@
 import subprocess
 import sys
+from unittest.mock import MagicMock, call, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
+
 from git_llm_commit.llm_commit import (
-    GitCommandLine,
-    CommitMessageGenerator,
+    CONVENTIONAL_COMMIT_TYPES,
     CommitConfig,
     CommitMessageEditor,
-    prompt_user,
-    CONVENTIONAL_COMMIT_TYPES,
+    CommitMessageGenerator,
+    GitCommandLine,
+    RiskyFileDetector,
     llm_commit,
+    prompt_user,
 )
 
 # Test data
@@ -25,6 +28,100 @@ index 1234567..89abcdef 100644
 """
 
 SAMPLE_COMMIT_MESSAGE = "feat: add new greeting function"
+
+# Test data for risky files
+SAMPLE_STAGED_FILES = [
+    "src/app.py",
+    "src/.env",
+    "config/credentials.json",
+    "test/test_app.py",
+]
+
+
+def test_risky_file_detector():
+    """Test risky file detection"""
+    detector = RiskyFileDetector()
+    risky_files = detector.detect_risky_files(SAMPLE_STAGED_FILES)
+    assert len(risky_files) == 2
+    assert "src/.env" in risky_files
+    assert "config/credentials.json" in risky_files
+    assert "src/app.py" not in risky_files
+    assert "test/test_app.py" not in risky_files
+
+
+def test_get_staged_files_success():
+    """Test successful staged files retrieval"""
+    git = GitCommandLine()
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.return_value = "file1.py\nfile2.py\n"
+        result = git.get_staged_files()
+        assert result == ["file1.py", "file2.py"]
+        mock_check_output.assert_called_once_with(
+            ["git", "diff", "--cached", "--name-only"], universal_newlines=True
+        )
+
+
+def test_get_staged_files_error():
+    """Test staged files error handling"""
+    git = GitCommandLine()
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.side_effect = subprocess.CalledProcessError(1, "cmd")
+        with pytest.raises(RuntimeError, match="Unable to get staged files"):
+            git.get_staged_files()
+
+
+def test_llm_commit_with_risky_files():
+    """Test commit workflow with risky files"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+        patch("builtins.input") as mock_input,
+        patch("builtins.print") as mock_print,
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git_instance.get_staged_files.return_value = SAMPLE_STAGED_FILES
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="gpt-4-turbo",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        # First prompt is for risky files, second for commit message
+        mock_input.side_effect = ["y"]
+        mock_prompt.return_value = "y"
+
+        # Execute
+        llm_commit("fake-api-key")
+
+        # Verify
+        mock_git_instance.get_staged_files.assert_called_once()
+        mock_print.assert_has_calls(
+            [
+                call("\nPotentially risky files staged:"),
+                call("  - src/.env"),
+                call("  - config/credentials.json"),
+            ],
+            any_order=False,
+        )
+        mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
 
 
 def test_commit_config_defaults():
@@ -287,7 +384,6 @@ def test_llm_commit_happy_path():
         patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
         patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
         patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
-        patch("builtins.print") as mock_print,
     ):
         # Setup mocks
         mock_git_instance = MagicMock()
