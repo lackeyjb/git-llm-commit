@@ -7,7 +7,8 @@ Usage:
 
 Environment Variables:
     OPENAI_API_KEY: Required. Your OpenAI API key.
-    LLM_COMMIT_TEMPERATURE: Optional. Control the creativity of the LLM (0.0-1.0, default: 0.7).
+    LLM_COMMIT_TEMPERATURE: Optional. Control the creativity of the LLM
+        (0.0-1.0, default: 0.7).
 """
 
 import os
