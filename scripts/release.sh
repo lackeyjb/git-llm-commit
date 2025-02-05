@@ -15,6 +15,9 @@ if ! uv run cz bump --yes; then
     exit 0
 fi
 
+# Install package in development mode to make module importable
+uv pip install -e .
+
 # Get the new version from __init__.py
 VERSION=$(python -c "from git_llm_commit import __version__; print(__version__)")
 
