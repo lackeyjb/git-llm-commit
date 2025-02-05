@@ -3,7 +3,7 @@ name = "git-llm-commit"
 dynamic = ["version"]
 description = "Generate Conventional Commit messages from your staged changes using an LLM"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "syntax-sherlock", email = "syntax-sherlock@users.noreply.github.com" },
 ]
@@ -14,8 +14,14 @@ dependencies = ["openai>=1.61.0", "python-dotenv>=1.0.1"]
 git-llm-commit = "git_llm_commit:main"
 
 [build-system]
-requires = ["setuptools>=69.0.3", "setuptools_scm>=8.0"]
+requires = ["setuptools>=69.0.3", "setuptools_scm>=8.0", "wheel>=0.42.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-data = { "git_llm_commit" = ["py.typed"] }
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools_scm]
 version_scheme = "no-guess-dev"
