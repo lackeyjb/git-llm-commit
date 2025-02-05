@@ -15,11 +15,8 @@ if ! uv run cz bump --yes; then
     exit 0
 fi
 
-# Install package in development mode to make module importable
-uv pip install -e .
-
-# Get the new version from __init__.py
-VERSION=$(python -c "from git_llm_commit import __version__; print(__version__)")
+# Get the new version directly from __init__.py
+VERSION=$(grep "__version__" src/git_llm_commit/__init__.py | cut -d'"' -f2)
 
 # Push the new tag
 git push origin "v${VERSION}"
