@@ -38,7 +38,28 @@ class CommitConfig:
 
     model: str = "gpt-4-turbo"
     temperature: float = 0.7
-    max_tokens: int = 300
+    # Size thresholds for determining commit message detail level
+    small_change_threshold: int = 50  # lines
+    large_change_threshold: int = 200  # lines
+    # Token limits for different change sizes
+    small_change_tokens: int = 100
+    medium_change_tokens: int = 200
+    large_change_tokens: int = 400
+
+
+def count_diff_lines(diff: str) -> int:
+    """Count the number of changed lines in a git diff"""
+    lines = diff.splitlines()
+    count = 0
+    for line in lines:
+        # Don't count file metadata lines (+++/---), only single +/- lines
+        if (
+            (line.startswith("+") or line.startswith("-"))
+            and not line.startswith("+++")
+            and not line.startswith("---")
+        ):
+            count += 1
+    return count
 
 
 class GitCommand(Protocol):
@@ -126,10 +147,24 @@ class CommitMessageGenerator:
 
     def generate(self, diff: str) -> str:
         system_message = self._get_system_message()
+
+        # Determine message detail level based on diff size
+        diff_size = count_diff_lines(diff)
+        if diff_size <= self.config.small_change_threshold:
+            max_tokens = self.config.small_change_tokens
+            detail_level = "concise"
+        elif diff_size <= self.config.large_change_threshold:
+            max_tokens = self.config.medium_change_tokens
+            detail_level = "moderate"
+        else:
+            max_tokens = self.config.large_change_tokens
+            detail_level = "detailed"
+
         user_message = (
             f"Git diff:\n\n{diff}\n\n"
-            "Generate a commit message following the Conventional Commits "
-            "specification:"
+            f"Generate a {detail_level} commit message following the Conventional "
+            f"Commits specification. This is a {detail_level} change with {diff_size} "
+            "lines modified."
         )
 
         try:
@@ -140,7 +175,7 @@ class CommitMessageGenerator:
                     {"role": "user", "content": user_message},
                 ],
                 temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
+                max_tokens=max_tokens,
             )
         except Exception as e:
             error_msg = f"Error calling OpenAI API: {e}"
@@ -165,12 +200,15 @@ class CommitMessageGenerator:
             "  - scope is optional and should be included if it clarifies the affected "
             "area of code.\n"
             "  - The description is a concise summary of the change.\n"
+            "  - For small changes, provide only a clear description line.\n"
+            "  - For moderate changes, include a brief body explaining key changes.\n"
+            "  - For large changes, provide a detailed body and relevant footers.\n"
             "  - The body (if provided) explains the reasoning and details of the "
             "change.\n"
             "  - Footers (if applicable) may include BREAKING CHANGE information or "
             "issue references.\n\n"
             "Ensure that the commit message comprehensively and accurately reflects all"
-            " changes shown in the diff."
+            " changes shown in the diff, with detail appropriate to the change size."
         )
 
 

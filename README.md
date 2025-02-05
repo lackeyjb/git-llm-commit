@@ -51,6 +51,10 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 
 - Generates commit messages following Conventional Commits format
 - Uses GPT-4 to analyze diffs and create meaningful commit messages
+- Adapts commit message detail based on change size:
+  - Small changes (≤50 lines): Concise, single-line messages
+  - Medium changes (51-200 lines): Moderate detail with brief body
+  - Large changes (>200 lines): Detailed messages with full body and footers
 - Supports interactive editing of generated messages
 - Integrates with your default git editor
 - Respects conventional commit types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert

@@ -13,6 +13,7 @@ from git_llm_commit.llm_commit import (
     CommitMessageGenerator,
     GitCommandLine,
     RiskyFileDetector,
+    count_diff_lines,
     llm_commit,
     prompt_user,
 )
@@ -124,20 +125,85 @@ def test_llm_commit_with_risky_files():
         mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
 
 
+def test_count_diff_lines():
+    """Test counting changed lines in git diff"""
+    diff = """diff --git a/test.py b/test.py
+index 1234567..89abcdef 100644
+--- a/test.py
++++ b/test.py
+@@ -1,3 +1,4 @@
++def new_feature():
+-def old_feature():
+     return "Hello, World!"
++    print("New line")"""
+
+    count = count_diff_lines(diff)
+    assert count == 3  # One addition, one deletion, one more addition
+
+
 def test_commit_config_defaults():
     """Test CommitConfig initialization with default values"""
     config = CommitConfig()
     assert config.model == "gpt-4-turbo"
     assert config.temperature == 0.7
-    assert config.max_tokens == 300
+    assert config.small_change_threshold == 50
+    assert config.large_change_threshold == 200
+    assert config.small_change_tokens == 100
+    assert config.medium_change_tokens == 200
+    assert config.large_change_tokens == 400
 
 
 def test_commit_config_custom():
     """Test CommitConfig initialization with custom values"""
-    config = CommitConfig(model="gpt-3.5-turbo", temperature=0.5, max_tokens=200)
+    config = CommitConfig(
+        model="gpt-3.5-turbo",
+        temperature=0.5,
+        small_change_threshold=30,
+        large_change_threshold=150,
+        small_change_tokens=80,
+        medium_change_tokens=150,
+        large_change_tokens=300,
+    )
     assert config.model == "gpt-3.5-turbo"
     assert config.temperature == 0.5
-    assert config.max_tokens == 200
+    assert config.small_change_threshold == 30
+    assert config.large_change_threshold == 150
+    assert config.small_change_tokens == 80
+    assert config.medium_change_tokens == 150
+    assert config.large_change_tokens == 300
+
+
+def test_generate_commit_message_size_based():
+    """Test commit message generation with different diff sizes"""
+    mock_client = MagicMock()
+    config = CommitConfig()
+
+    # Test small change
+    small_diff = "+one line change"
+    generator = CommitMessageGenerator(mock_client, config)
+    generator.generate(small_diff)
+
+    small_call_args = mock_client.chat.completions.create.call_args[1]
+    assert small_call_args["max_tokens"] == config.small_change_tokens
+    assert "concise" in small_call_args["messages"][1]["content"]
+
+    # Reset mock for medium change test
+    mock_client.reset_mock()
+    medium_diff = "\n".join([f"+line {i}" for i in range(100)])
+    generator.generate(medium_diff)
+
+    medium_call_args = mock_client.chat.completions.create.call_args[1]
+    assert medium_call_args["max_tokens"] == config.medium_change_tokens
+    assert "moderate" in medium_call_args["messages"][1]["content"]
+
+    # Reset mock for large change test
+    mock_client.reset_mock()
+    large_diff = "\n".join([f"+line {i}" for i in range(300)])
+    generator.generate(large_diff)
+
+    large_call_args = mock_client.chat.completions.create.call_args[1]
+    assert large_call_args["max_tokens"] == config.large_change_tokens
+    assert "detailed" in large_call_args["messages"][1]["content"]
 
 
 def test_get_diff_success():
@@ -261,7 +327,9 @@ def test_generate_commit_message():
     call_args = mock_client.chat.completions.create.call_args[1]
     assert call_args["model"] == "gpt-4-turbo"
     assert call_args["temperature"] == 0.7
-    assert call_args["max_tokens"] == 300
+    assert (
+        call_args["max_tokens"] == config.small_change_tokens
+    )  # Small diff = 100 tokens
     assert len(call_args["messages"]) == 2
     assert call_args["messages"][0]["role"] == "system"
     assert call_args["messages"][1]["role"] == "user"
