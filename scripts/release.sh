@@ -16,8 +16,7 @@ git tag -a "v${VERSION}" -m "Release ${VERSION}"
 git push origin "v${VERSION}"
 
 # Build and upload
-python -m build
-twine check dist/*
-twine upload dist/*
+uv build
+uv publish
 
 echo "Successfully released version ${VERSION}"
