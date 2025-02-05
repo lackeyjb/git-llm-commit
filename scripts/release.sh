@@ -10,7 +10,10 @@ rm -rf dist/ build/ *.egg-info
 # 2. Update __version__ in __init__.py
 # 3. Create git tag
 # 4. Generate changelog
-uv run cz bump --yes
+if ! uv run cz bump --yes; then
+    echo "No version bump needed"
+    exit 0
+fi
 
 # Get the new version from __init__.py
 VERSION=$(python -c "from git_llm_commit import __version__; print(__version__)")
