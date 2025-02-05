@@ -20,12 +20,24 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 
 1. Get an OpenAI API key from [OpenAI's platform](https://platform.openai.com/)
 2. Set your API key in your environment:
+
    ```bash
    export OPENAI_API_KEY='your-api-key'
    ```
+
    Or create a `.env` file in your project root with:
+
    ```
    OPENAI_API_KEY=your-api-key
+   ```
+
+3. (Optional) Customize the LLM's creativity:
+   ```bash
+   export LLM_COMMIT_TEMPERATURE='0.5'  # More deterministic (0.0-1.0, default: 0.7)
+   ```
+   Or in your `.env` file:
+   ```
+   LLM_COMMIT_TEMPERATURE=0.5
    ```
 
 ## Usage

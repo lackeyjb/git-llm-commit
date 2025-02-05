@@ -4,6 +4,10 @@ git-llm-commit: Generate a Conventional Commit message from staged changes using
 Usage:
     Stage your changes, then run: git llm-commit
     (Ensure your OPENAI_API_KEY is set in your environment)
+
+Environment Variables:
+    OPENAI_API_KEY: Required. Your OpenAI API key.
+    LLM_COMMIT_TEMPERATURE: Optional. Control the creativity of the LLM (0.0-1.0, default: 0.7).
 """
 
 import os
@@ -37,7 +41,7 @@ class CommitConfig:
     """Configuration for commit message generation"""
 
     model: str = "gpt-4-turbo"
-    temperature: float = 0.7
+    temperature: float = float(os.getenv("LLM_COMMIT_TEMPERATURE", "0.7"))
     # Size thresholds for determining commit message detail level
     small_change_threshold: int = 50  # lines
     large_change_threshold: int = 200  # lines
