@@ -1,18 +1,21 @@
 #!/bin/bash
-set -e
-
-VERSION=${1}
-if [ -z "$VERSION" ]; then
-    echo "Error: Version number required"
-    echo "Usage: $0 VERSION"
-    exit 1
-fi
+set -eo pipefail
 
 # Clean previous builds
 rm -rf dist/ build/ *.egg-info
 
-# Create and push tag
-git tag -a "v${VERSION}" -m "Release ${VERSION}"
+# Use commitizen to bump version based on conventional commits
+# This will:
+# 1. Determine version bump from commit messages
+# 2. Update __version__ in __init__.py
+# 3. Create git tag
+# 4. Generate changelog
+uv run cz bump --yes
+
+# Get the new version from __init__.py
+VERSION=$(python -c "from git_llm_commit import __version__; print(__version__)")
+
+# Push the new tag
 git push origin "v${VERSION}"
 
 # Build and upload

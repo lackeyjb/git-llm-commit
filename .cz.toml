@@ -1,0 +1,9 @@
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "1.0.2"
+tag_format = "v$version"
+version_files = ["src/git_llm_commit/__init__.py:__version__"]
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+changelog_incremental = true
+changelog_start_rev = "v1.0.2"
