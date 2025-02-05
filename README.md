@@ -56,6 +56,19 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 - Respects conventional commit types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
 - Detects potentially risky files (like .env, credentials, secrets) and prompts for confirmation before committing
 
+## Security Features
+
+### Risky File Detection
+
+The tool automatically scans staged files for potentially sensitive content like:
+
+- `.env` files
+- Files containing "secret" or "credentials" in the name
+- Key files
+- Secret/credential configuration files (yml, yaml, json, toml)
+
+If such files are detected, you'll be prompted for confirmation before proceeding with the commit. This helps prevent accidental commits of sensitive information to your repository.
+
 ## Requirements
 
 - Python 3.x
