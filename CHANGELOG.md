@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version with changelog
 
+## v1.2.0 (2025-02-05)
+
+### Feat
+
+- **release-script**: enhance version bump handling in release process
+- add LLM_COMMIT_TEMPERATURE env var to control model creativity
+
+### Fix
+
+- push changelog updates in release script
+- handle existing tags gracefully in release script
+- improve version extraction in release script
+
 ## v1.1.0 (2025-02-05)
 
 ### Feat

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from .llm_commit import llm_commit
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 class EnvironmentError(Exception):
