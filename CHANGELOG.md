@@ -10,3 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial version with changelog
+
+## v1.1.0 (2025-02-05)
+
+### Feat
+
+- integrate Commitizen for version management and changelog generation
+
+### Refactor
+
+- **build**: switch build system from setuptools to hatch
