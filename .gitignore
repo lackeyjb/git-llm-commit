@@ -1,9 +1,15 @@
 .env
 .venv/
 __pycache__/
+.pypirc
 
 .coverage
 htmlcov/
 
 .DS_Store
 .aider*
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/

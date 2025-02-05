@@ -3,10 +3,13 @@
 
 import os
 import sys
+from importlib.metadata import version
 
 from dotenv import load_dotenv
 
 from .llm_commit import llm_commit
+
+__version__ = version("git-llm-commit")
 
 
 class EnvironmentError(Exception):

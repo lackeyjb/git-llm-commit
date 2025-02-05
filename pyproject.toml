@@ -1,6 +1,6 @@
 [project]
 name = "git-llm-commit"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Generate Conventional Commit messages from your staged changes using an LLM"
 readme = "README.md"
 authors = [
@@ -13,8 +13,11 @@ dependencies = ["openai>=1.61.0", "python-dotenv>=1.0.1"]
 git-llm-commit = "git_llm_commit:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "setuptools_scm>=8.0"]
 build-backend = "hatchling.build"
+
+[tool.setuptools_scm]
+version_scheme = "no-guess-dev"
 
 [dependency-groups]
 dev = [
