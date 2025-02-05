@@ -18,6 +18,9 @@ fi
 # Get the new version directly from __init__.py
 VERSION=$(grep "__version__" src/git_llm_commit/__init__.py | cut -d'"' -f2)
 
+# Push the version bump commit and changelog
+git push origin main
+
 # Try to push the new tag, but don't fail if it exists
 if git push origin "v${VERSION}" 2>/dev/null; then
     echo "Pushed tag v${VERSION}"
