@@ -4,6 +4,7 @@ dynamic = ["version"]
 description = "Generate Conventional Commit messages from your staged changes using an LLM"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "syntax-sherlock", email = "syntax-sherlock@users.noreply.github.com" },
 ]
