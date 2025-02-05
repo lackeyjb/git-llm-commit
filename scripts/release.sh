@@ -10,7 +10,11 @@ rm -rf dist/ build/ *.egg-info
 # 2. Update __version__ in __init__.py
 # 3. Create git tag
 # 4. Generate changelog
-if ! uv run cz bump --yes 2>/dev/null; then
+# Show what commitizen is doing
+uv run cz changelog || true
+uv run cz version --project
+
+if ! uv run cz bump --yes; then
     echo "No version bump needed (or tag already exists)"
     exit 0
 fi
