@@ -2,11 +2,11 @@
 
 [![codecov](https://codecov.io/github/syntax-sherlock/git-llm-commit/graph/badge.svg?token=YZECGT1JIF)](https://codecov.io/github/syntax-sherlock/git-llm-commit)
 
-Generate Conventional Commit messages from your staged changes using an LLM (GPT-4).
+Generate Conventional Commit messages from your staged changes using an LLM.
 
 ## Description
 
-`git-llm-commit` is a command-line tool that analyzes your staged git changes and generates a commit message following the [Conventional Commits](https://www.conventionalcommits.org/) specification using OpenAI's GPT-4 model.
+`git-llm-commit` is a command-line tool that analyzes your staged git changes and generates a commit message following the [Conventional Commits](https://www.conventionalcommits.org/) specification using various LLM models, including OpenAI's GPT-4 and OpenRouter.
 
 ## Installation
 
@@ -18,7 +18,7 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 
 ## Setup
 
-1. Get an OpenAI API key from [OpenAI's platform](https://platform.openai.com/)
+1. Get an API key from your preferred LLM provider (e.g., OpenAI, OpenRouter)
 2. Set your API key in your environment:
 
    ```bash
@@ -32,13 +32,45 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
    ```
 
 3. (Optional) Customize the LLM's creativity:
+
    ```bash
    export LLM_COMMIT_TEMPERATURE='0.5'  # More deterministic (0.0-1.0, default: 0.7)
    ```
+
    Or in your `.env` file:
+
    ```
    LLM_COMMIT_TEMPERATURE=0.5
    ```
+
+4. (Optional) Use OpenRouter:
+
+   - Get an OpenRouter API key from [OpenRouter's platform](https://openrouter.ai/)
+   - Set your OpenRouter API key in your environment:
+
+     ```bash
+     export OPENROUTER_API_KEY='your-openrouter-api-key'
+     ```
+
+     Or in your `.env` file:
+
+     ```
+     OPENROUTER_API_KEY=your-openrouter-api-key
+     ```
+
+5. (Optional) Choose a custom model:
+
+   - Set the model name in your environment:
+
+     ```bash
+     export LLM_COMMIT_MODEL='custom-model'
+     ```
+
+     Or in your `.env` file:
+
+     ```
+     LLM_COMMIT_MODEL=custom-model
+     ```
 
 ## Usage
 
@@ -62,7 +94,7 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 ## Features
 
 - Generates commit messages following Conventional Commits format
-- Uses GPT-4 to analyze diffs and create meaningful commit messages
+- Uses various LLM models to analyze diffs and create meaningful commit messages
 - Adapts commit message detail based on change size:
   - Small changes (≤50 lines): Concise, single-line messages
   - Medium changes (51-200 lines): Moderate detail with brief body
@@ -71,6 +103,8 @@ Generate Conventional Commit messages from your staged changes using an LLM (GPT
 - Integrates with your default git editor
 - Respects conventional commit types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
 - Detects potentially risky files (like .env, credentials, secrets) and prompts for confirmation before committing
+- Prioritizes OpenRouter API key if available, otherwise falls back to OpenAI API key
+- Allows users to choose the model they would like to use
 
 ## Security Features
 
@@ -89,7 +123,7 @@ If such files are detected, you'll be prompted for confirmation before proceedin
 
 - Python 3.x
 - Git
-- OpenAI API key
+- API key from your preferred LLM provider (e.g., OpenAI, OpenRouter)
 
 ## License
 
