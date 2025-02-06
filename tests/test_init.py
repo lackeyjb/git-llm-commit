@@ -16,9 +16,8 @@ def test_get_api_key_missing():
     with patch.dict(os.environ, {}, clear=True):
         with pytest.raises(EnvironmentError) as exc_info:
             get_api_key()
-        assert (
-            str(exc_info.value)
-            == "Neither OPENROUTER_API_KEY nor OPENAI_API_KEY environment variable is set."
+        assert str(exc_info.value) == (
+            "Neither OPENROUTER_API_KEY nor OPENAI_API_KEY environment variable is set."
         )
 
 
@@ -42,9 +41,8 @@ def test_get_api_key_neither_key():
     with patch.dict(os.environ, {}, clear=True):
         with pytest.raises(EnvironmentError) as exc_info:
             get_api_key()
-        assert (
-            str(exc_info.value)
-            == "Neither OPENROUTER_API_KEY nor OPENAI_API_KEY environment variable is set."
+        assert str(exc_info.value) == (
+            "Neither OPENROUTER_API_KEY nor OPENAI_API_KEY environment variable is set."
         )
 
 
