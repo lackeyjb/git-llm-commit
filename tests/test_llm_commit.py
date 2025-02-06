@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from unittest.mock import MagicMock, call, patch
@@ -171,6 +172,39 @@ def test_commit_config_custom():
     assert config.small_change_tokens == 80
     assert config.medium_change_tokens == 150
     assert config.large_change_tokens == 300
+
+
+def test_commit_config_model_with_openrouter():
+    """Test that model string is prefixed with openai/ when using OpenRouter"""
+    with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}):
+        config = CommitConfig()
+        assert config.model == "openai/gpt-4-turbo"
+
+
+def test_commit_config_model_with_openai():
+    """Test that model string remains unchanged when using OpenAI"""
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
+        config = CommitConfig()
+        assert config.model == "gpt-4-turbo"
+
+
+def test_commit_config_custom_model_with_openrouter():
+    """Test that custom model string is prefixed with openai/ when using OpenRouter"""
+    with patch.dict(
+        os.environ,
+        {"OPENROUTER_API_KEY": "test-key", "LLM_COMMIT_MODEL": "gpt-3.5-turbo"},
+    ):
+        config = CommitConfig()
+        assert config.model == "openai/gpt-3.5-turbo"
+
+
+def test_commit_config_custom_model_with_openai():
+    """Test that custom model string remains unchanged when using OpenAI"""
+    with patch.dict(
+        os.environ, {"OPENAI_API_KEY": "test-key", "LLM_COMMIT_MODEL": "gpt-3.5-turbo"}
+    ):
+        config = CommitConfig()
+        assert config.model == "gpt-3.5-turbo"
 
 
 def test_generate_commit_message_size_based():
@@ -474,6 +508,14 @@ def test_llm_commit_happy_path():
             model="gpt-4-turbo",
             object="chat.completion",
         )
+
+        # Properly mock API key retrieval
+        mock_get_api_key = patch(
+            "git_llm_commit.get_api_key", return_value="test-api-key"
+        )
+        mock_get_api_key.start()
+
+        # Mock OpenAI with custom model
         mock_openai_instance.chat.completions.create.return_value = mock_response
         mock_openai.return_value = mock_openai_instance
 
@@ -486,6 +528,119 @@ def test_llm_commit_happy_path():
         mock_git_instance.get_diff.assert_called_once()
         mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
         mock_prompt.assert_called_once()
+
+
+def test_llm_commit_with_openrouter():
+    """Test commit workflow with OpenRouter API key"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+        patch.dict(os.environ, {"OPENROUTER_API_KEY": "fake-openrouter-key"}),
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="gpt-4-turbo",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        mock_prompt.return_value = "y"
+
+        # Execute
+        llm_commit("fake-api-key")
+
+        # Verify
+        mock_git_instance.get_diff.assert_called_once()
+        mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
+        mock_prompt.assert_called_once()
+        mock_openai.assert_called_once_with(
+            api_key="fake-api-key", base_url="https://openrouter.ai/api/v1"
+        )
+
+
+def test_llm_commit_with_custom_model():
+    """Test commit workflow with custom model"""
+    with (
+        patch("git_llm_commit.llm_commit.GitCommandLine") as mock_git,
+        patch("git_llm_commit.llm_commit.OpenAI") as mock_openai,
+        patch("git_llm_commit.llm_commit.prompt_user") as mock_prompt,
+        patch.dict(os.environ, {"LLM_COMMIT_MODEL": "custom-model"}),
+    ):
+        # Setup mocks
+        mock_git_instance = MagicMock()
+        mock_git_instance.get_diff.return_value = SAMPLE_DIFF
+        mock_git.return_value = mock_git_instance
+
+        mock_openai_instance = MagicMock()
+        mock_response = ChatCompletion(
+            id="mock-id",
+            choices=[
+                Choice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            created=1234567890,
+            model="custom-model",
+            object="chat.completion",
+        )
+        mock_openai_instance.chat.completions.create.return_value = mock_response
+        mock_openai.return_value = mock_openai_instance
+
+        mock_prompt.return_value = "y"
+
+        # Create a generator instance to get actual message content
+        generator = CommitMessageGenerator(mock_openai_instance, CommitConfig())
+        mock_openai_instance._get_system_message.return_value = (
+            generator._get_system_message()
+        )
+        mock_openai_instance._get_user_message.return_value = (
+            generator._get_user_message(SAMPLE_DIFF)
+        )
+
+        # Execute
+        llm_commit("fake-api-key")
+
+        # Verify
+        mock_git_instance.get_diff.assert_called_once()
+        mock_git_instance.commit.assert_called_once_with(SAMPLE_COMMIT_MESSAGE)
+        mock_prompt.assert_called_once()
+        mock_openai_instance.chat.completions.create.assert_called_once_with(
+            model="custom-model",
+            messages=[
+                {
+                    "role": "system",
+                    "content": mock_openai_instance._get_system_message(),
+                },
+                {
+                    "role": "user",
+                    "content": mock_openai_instance._get_user_message(SAMPLE_DIFF),
+                },
+            ],
+            temperature=0.7,
+            max_tokens=100,
+        )
 
 
 def test_llm_commit_empty_diff():

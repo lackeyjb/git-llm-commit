@@ -7,6 +7,9 @@ Usage:
 
 Environment Variables:
     OPENAI_API_KEY: Required. Your OpenAI API key.
+    OPENROUTER_API_KEY: Optional. Your OpenRouter API key.
+    LLM_COMMIT_MODEL: Optional. Model to use for commit message generation
+        (default: gpt-4-turbo).
     LLM_COMMIT_TEMPERATURE: Optional. Control the creativity of the LLM
         (0.0-1.0, default: 0.7).
 """
@@ -16,7 +19,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from openai import OpenAI
@@ -41,12 +44,18 @@ CONVENTIONAL_COMMIT_TYPES = [
 class CommitConfig:
     """Configuration for commit message generation"""
 
-    model: str = "gpt-4-turbo"
-    temperature: float = float(os.getenv("LLM_COMMIT_TEMPERATURE", "0.7"))
-    # Size thresholds for determining commit message detail level
+    model: str = field(
+        default_factory=lambda: (
+            f"openai/{os.getenv('LLM_COMMIT_MODEL', 'gpt-4-turbo')}"
+            if os.getenv("OPENROUTER_API_KEY")
+            else os.getenv("LLM_COMMIT_MODEL", "gpt-4-turbo")
+        )
+    )
+    temperature: float = field(
+        default_factory=lambda: float(os.getenv("LLM_COMMIT_TEMPERATURE", "0.7"))
+    )
     small_change_threshold: int = 50  # lines
     large_change_threshold: int = 200  # lines
-    # Token limits for different change sizes
     small_change_tokens: int = 100
     medium_change_tokens: int = 200
     large_change_tokens: int = 400
@@ -150,27 +159,36 @@ class CommitMessageGenerator:
         self.llm_client = llm_client
         self.config = config
 
-    def generate(self, diff: str) -> str:
-        system_message = self._get_system_message()
-
-        # Determine message detail level based on diff size
+    def _get_user_message(self, diff: str) -> str:
+        """Generate the user message for the API request"""
         diff_size = count_diff_lines(diff)
         if diff_size <= self.config.small_change_threshold:
-            max_tokens = self.config.small_change_tokens
             detail_level = "concise"
         elif diff_size <= self.config.large_change_threshold:
-            max_tokens = self.config.medium_change_tokens
             detail_level = "moderate"
         else:
-            max_tokens = self.config.large_change_tokens
             detail_level = "detailed"
 
-        user_message = (
+        return (
             f"Git diff:\n\n{diff}\n\n"
             f"Generate a {detail_level} commit message following the Conventional "
             f"Commits specification. This is a {detail_level} change with {diff_size} "
             "lines modified."
         )
+
+    def generate(self, diff: str) -> str:
+        """Generate a commit message for the given diff"""
+        system_message = self._get_system_message()
+        user_message = self._get_user_message(diff)
+
+        # Determine max tokens based on diff size
+        diff_size = count_diff_lines(diff)
+        if diff_size <= self.config.small_change_threshold:
+            max_tokens = self.config.small_change_tokens
+        elif diff_size <= self.config.large_change_threshold:
+            max_tokens = self.config.medium_change_tokens
+        else:
+            max_tokens = self.config.large_change_tokens
 
         try:
             response = self.llm_client.chat.completions.create(
@@ -254,7 +272,10 @@ def llm_commit(api_key: str) -> None:
     """Main function to handle the commit process"""
     git = GitCommandLine()
     config = CommitConfig()
-    llm_client = OpenAI(api_key=api_key)
+    base_url = (
+        "https://openrouter.ai/api/v1" if os.getenv("OPENROUTER_API_KEY") else None
+    )
+    llm_client = OpenAI(api_key=api_key, base_url=base_url)
     generator = CommitMessageGenerator(llm_client, config)
     editor = CommitMessageEditor()
 

@@ -19,18 +19,25 @@ class EnvironmentError(Exception):
 
 def get_api_key() -> str:
     """
-    Retrieve the OpenAI API key from the environment.
+    Retrieve the API key from the environment, preferring OpenRouter if available.
 
     Returns:
-        str: The OpenAI API key
+        str: The API key (OpenRouter or OpenAI)
 
     Raises:
-        EnvironmentError: If OPENAI_API_KEY is not set
+        EnvironmentError: If neither OPENROUTER_API_KEY nor OPENAI_API_KEY is set.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise EnvironmentError("OPENAI_API_KEY environment variable is not set.")
-    return api_key
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+
+    if openrouter_key:
+        return openrouter_key
+    elif openai_key:
+        return openai_key
+    else:
+        raise EnvironmentError(
+            "Neither OPENROUTER_API_KEY nor OPENAI_API_KEY environment variable is set."
+        )
 
 
 def main() -> None:
