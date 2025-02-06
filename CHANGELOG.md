@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version with changelog
 
+## v2.0.0 (2025-02-06)
+
+### Refactor
+
+- streamline scripts and improve code formatting
+
 ## v1.2.1 (2025-02-05)
 
 ### Fix
