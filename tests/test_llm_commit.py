@@ -991,7 +991,7 @@ def test_main_environment_error():
         patch("sys.argv", ["git-llm-commit"]),
     ):
         with pytest.raises(SystemExit) as exc_info:
-            main()
+            main([])
         assert exc_info.value.code == 1
 
 
@@ -1004,7 +1004,7 @@ def test_main_unexpected_error():
         patch("sys.argv", ["git-llm-commit"]),
     ):
         with pytest.raises(SystemExit) as exc_info:
-            main()
+            main([])
         assert exc_info.value.code == 1
 
 
@@ -1016,7 +1016,7 @@ def test_main_success():
         patch("git_llm_commit.load_dotenv"),
         patch("sys.argv", ["git-llm-commit"]),
     ):
-        main()
+        main([])
         mock_llm_commit.assert_called_once_with(api_key=test_key, dynamic_length=False)
 
 
@@ -1031,5 +1031,5 @@ def test_main_missing_key():
         patch("sys.argv", ["git-llm-commit"]),
     ):
         with pytest.raises(SystemExit) as exc_info:
-            main()
+            main([])
         assert exc_info.value.code == 1

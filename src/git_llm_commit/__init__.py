@@ -41,7 +41,7 @@ def get_api_key() -> str:
         )
 
 
-def main() -> None:
+def main(argv=None) -> None:
     """
     Main entry point for the git-llm-commit command.
     Handles environment setup and error handling.
@@ -63,7 +63,7 @@ def main() -> None:
     parser.add_argument(
         "--version", "-v", action="version", version=f"git-llm-commit {__version__}"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     try:
         load_dotenv()
