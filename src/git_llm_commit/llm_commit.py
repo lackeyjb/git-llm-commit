@@ -12,6 +12,8 @@ Environment Variables:
         (default: gpt-4-turbo).
     LLM_COMMIT_TEMPERATURE: Optional. Control the creativity of the LLM
         (0.0-1.0, default: 0.7).
+    LLM_COMMIT_DYNAMIC_LENGTH: Optional. Set to "true" to generate longer, multi-line
+        commit messages based on change size (default: false, one sentence only).
 """
 
 import os
@@ -53,6 +55,10 @@ class CommitConfig:
     )
     temperature: float = field(
         default_factory=lambda: float(os.getenv("LLM_COMMIT_TEMPERATURE", "0.7"))
+    )
+    one_sentence_only: bool = field(
+        default_factory=lambda: os.getenv("LLM_COMMIT_DYNAMIC_LENGTH", "").lower()
+        != "true"
     )
     small_change_threshold: int = 50  # lines
     large_change_threshold: int = 200  # lines
@@ -169,11 +175,19 @@ class CommitMessageGenerator:
         else:
             detail_level = "detailed"
 
+        length_instruction = (
+            "The commit message should be a single sentence and only include a "
+            "title line (no body or footer). "
+            "Keep it under 72 characters if possible. "
+            if self.config.one_sentence_only
+            else ""
+        )
+
         return (
             f"Git diff:\n\n{diff}\n\n"
             f"Generate a {detail_level} commit message following the Conventional "
-            f"Commits specification. This is a {detail_level} change with {diff_size} "
-            "lines modified."
+            f"Commits specification. {length_instruction}This is a {detail_level} "
+            f"change with {diff_size} lines modified."
         )
 
     def generate(self, diff: str) -> str:
@@ -210,29 +224,50 @@ class CommitMessageGenerator:
         return response.choices[0].message.content.strip().strip("`")
 
     def _get_system_message(self) -> str:
-        return (
-            "You are a commit message generator that strictly follows the Conventional "
-            "Commits specification. "
-            "Given a git diff, generate a commit message that adheres to the following "
-            "format:\n\n"
-            "  <type>[optional scope]: <description>\n\n"
-            "  [optional body]\n\n"
-            "  [optional footer(s)]\n\n"
-            "Where:\n"
-            f"  - type is one of: {', '.join(CONVENTIONAL_COMMIT_TYPES)}.\n"
-            "  - scope is optional and should be included if it clarifies the affected "
-            "area of code.\n"
-            "  - The description is a concise summary of the change.\n"
-            "  - For small changes, provide only a clear description line.\n"
-            "  - For moderate changes, include a brief body explaining key changes.\n"
-            "  - For large changes, provide a detailed body and relevant footers.\n"
-            "  - The body (if provided) explains the reasoning and details of the "
-            "change.\n"
-            "  - Footers (if applicable) may include BREAKING CHANGE information or "
-            "issue references.\n\n"
-            "Ensure that the commit message comprehensively and accurately reflects all"
-            " changes shown in the diff, with detail appropriate to the change size."
-        )
+        if self.config.one_sentence_only:
+            return (
+                "You are a commit message generator that strictly follows the "
+                "Conventional Commits specification. "
+                "Given a git diff, generate a commit message that adheres to the "
+                "following format:\n\n"
+                "  <type>[optional scope]: <description>\n\n"
+                "Where:\n"
+                f"  - type is one of: {', '.join(CONVENTIONAL_COMMIT_TYPES)}.\n"
+                "  - scope is optional and should be included if it clarifies the "
+                "affected area of code.\n"
+                "  - The description is a concise summary of the change in a single "
+                "sentence.\n"
+                "  - DO NOT include a body or footer section.\n"
+                "  - Keep the subject line under 72 characters if possible.\n\n"
+                "Ensure that the commit message accurately reflects the essence of the "
+                "changes shown in the diff."
+            )
+        else:
+            return (
+                "You are a commit message generator that strictly follows the "
+                "Conventional Commits specification. "
+                "Given a git diff, generate a commit message that adheres to the "
+                "following format:\n\n"
+                "  <type>[optional scope]: <description>\n\n"
+                "  [optional body]\n\n"
+                "  [optional footer(s)]\n\n"
+                "Where:\n"
+                f"  - type is one of: {', '.join(CONVENTIONAL_COMMIT_TYPES)}.\n"
+                "  - scope is optional and should be included if it clarifies the "
+                "affected area of code.\n"
+                "  - The description is a concise summary of the change.\n"
+                "  - For small changes, provide only a clear description line.\n"
+                "  - For moderate changes, include a brief body explaining key "
+                "changes.\n"
+                "  - For large changes, provide a detailed body and relevant footers.\n"
+                "  - The body (if provided) explains the reasoning and details of the "
+                "change.\n"
+                "  - Footers (if applicable) may include BREAKING CHANGE information "
+                "or issue references.\n\n"
+                "Ensure that the commit message comprehensively and accurately "
+                "reflects all changes shown in the diff, with detail appropriate to "
+                "the change size."
+            )
 
 
 class CommitMessageEditor:
@@ -268,9 +303,12 @@ def prompt_risky_files(files: list[str]) -> bool:
     return input("\nCommit anyway? (y/N): ").lower().startswith("y")
 
 
-def llm_commit(api_key: str) -> None:
+def llm_commit(api_key: str, dynamic_length: bool = False) -> None:
     """Main function to handle the commit process"""
     git = GitCommandLine()
+    # Override environment variable with command-line flag
+    if dynamic_length:
+        os.environ["LLM_COMMIT_DYNAMIC_LENGTH"] = "true"
     config = CommitConfig()
     base_url = (
         "https://openrouter.ai/api/v1" if os.getenv("OPENROUTER_API_KEY") else None

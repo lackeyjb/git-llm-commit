@@ -147,6 +147,7 @@ def test_commit_config_defaults():
     config = CommitConfig()
     assert config.model == "gpt-4-turbo"
     assert config.temperature == 0.7
+    assert config.one_sentence_only is True
     assert config.small_change_threshold == 50
     assert config.large_change_threshold == 200
     assert config.small_change_tokens == 100
@@ -205,6 +206,13 @@ def test_commit_config_custom_model_with_openai():
     ):
         config = CommitConfig()
         assert config.model == "gpt-3.5-turbo"
+
+
+def test_commit_config_dynamic_length():
+    """Test CommitConfig with dynamic length enabled"""
+    with patch.dict(os.environ, {"LLM_COMMIT_DYNAMIC_LENGTH": "true"}):
+        config = CommitConfig()
+        assert config.one_sentence_only is False
 
 
 def test_generate_commit_message_size_based():
@@ -407,7 +415,9 @@ def test_generate_commit_message_empty_response():
 
 def test_system_message_content():
     """Test system message content and format"""
-    generator = CommitMessageGenerator(MagicMock(), CommitConfig())
+    config = CommitConfig()
+    config.one_sentence_only = False  # Ensure we get the detailed format for testing
+    generator = CommitMessageGenerator(MagicMock(), config)
     system_message = generator._get_system_message()
 
     # Check essential components
@@ -420,6 +430,25 @@ def test_system_message_content():
     # Verify all commit types are included
     for commit_type in CONVENTIONAL_COMMIT_TYPES:
         assert commit_type in system_message
+
+
+def test_system_message_content_one_sentence():
+    """Test system message content and format with one_sentence_only=True"""
+    config = CommitConfig()
+    config.one_sentence_only = True  # Test the one-sentence mode
+    generator = CommitMessageGenerator(MagicMock(), config)
+    system_message = generator._get_system_message()
+
+    # Check essential components
+    assert "You are a commit message generator" in system_message
+    assert "Conventional Commits specification" in system_message
+    assert "<type>[optional scope]: <description>" in system_message
+    assert "DO NOT include a body or footer section" in system_message
+    assert "single sentence" in system_message
+    
+    # Verify that the "[optional body]" and "[optional footer(s)]" are NOT present
+    assert "[optional body]" not in system_message
+    assert "[optional footer(s)]" not in system_message
 
 
 def test_commit_message_editor(tmp_path):
@@ -913,3 +942,42 @@ def test_llm_commit_runtime_error():
         # Verify error handling
         mock_print.assert_called_with("Error: Git error", file=sys.stderr)
         mock_exit.assert_called_with(1)
+
+
+def test_generate_commit_message_one_sentence():
+    """Test commit message generation with one_sentence_only=True"""
+    mock_client = MagicMock()
+    mock_response = ChatCompletion(
+        id="mock-id",
+        choices=[
+            Choice(
+                index=0,
+                message=ChatCompletionMessage(
+                    content=SAMPLE_COMMIT_MESSAGE, role="assistant"
+                ),
+                finish_reason="stop",
+            )
+        ],
+        created=1234567890,
+        model="gpt-4-turbo",
+        object="chat.completion",
+    )
+    mock_client.chat.completions.create.return_value = mock_response
+
+    config = CommitConfig()
+    config.one_sentence_only = True
+    generator = CommitMessageGenerator(mock_client, config)
+
+    # Get the system message and check it has the one-sentence instruction
+    system_message = generator._get_system_message()
+    assert "single sentence" in system_message
+    assert "DO NOT include a body or footer" in system_message
+
+    # Get the user message and check it has the one-sentence instruction
+    user_message = generator._get_user_message(SAMPLE_DIFF)
+    assert "single sentence" in user_message
+    assert "title line" in user_message
+
+    # Generate a message and verify
+    result = generator.generate(SAMPLE_DIFF)
+    assert result == SAMPLE_COMMIT_MESSAGE

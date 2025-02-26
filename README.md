@@ -87,15 +87,28 @@ Generate Conventional Commit messages from your staged changes using an LLM.
    ```
 
 3. Review the generated commit message and:
+
    - Press `y` to accept and commit
    - Press `n` to abort
    - Press `e` to edit the message before committing
 
+4. For detailed commit messages with body and footer sections:
+
+   ```bash
+   git llm-commit --dynamic
+   ```
+
+   or set the environment variable:
+
+   ```bash
+   export LLM_COMMIT_DYNAMIC_LENGTH=true
+   ```
+
 ## Features
 
 - Generates commit messages following Conventional Commits format
-- Uses various LLM models to analyze diffs and create meaningful commit messages
-- Adapts commit message detail based on change size:
+- By default, generates one-sentence commit messages (title only) for simplicity
+- Optional dynamic mode (--dynamic flag) that adapts commit message detail based on change size:
   - Small changes (≤50 lines): Concise, single-line messages
   - Medium changes (51-200 lines): Moderate detail with brief body
   - Large changes (>200 lines): Detailed messages with full body and footers

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Initialize git-llm-commit and handle environment setup."""
 
+import argparse
 import os
 import sys
 
@@ -45,10 +46,29 @@ def main() -> None:
     Main entry point for the git-llm-commit command.
     Handles environment setup and error handling.
     """
+    parser = argparse.ArgumentParser(
+        description=(
+            "Generate a Conventional Commit message from staged changes using an LLM."
+        )
+    )
+    parser.add_argument(
+        "--dynamic",
+        "-d",
+        action="store_true",
+        help=(
+            "Generate a detailed commit message with body and footer, "
+            "based on change size."
+        ),
+    )
+    parser.add_argument(
+        "--version", "-v", action="version", version=f"git-llm-commit {__version__}"
+    )
+    args = parser.parse_args()
+
     try:
         load_dotenv()
         api_key = get_api_key()
-        llm_commit(api_key=api_key)
+        llm_commit(api_key=api_key, dynamic_length=args.dynamic)
     except EnvironmentError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
