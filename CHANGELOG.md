@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.1.0 (2025-02-26)
+
+### Feat
+
+- add argv support to main function for enhanced testing
+- enhance git-llm-commit with dynamic commit message option
+
+### Fix
+
+- improve main function argument parsing
+
 ## v2.0.0 (2025-02-06)
 
 ### Refactor

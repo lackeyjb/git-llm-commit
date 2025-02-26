@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from .llm_commit import llm_commit
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 
 class EnvironmentError(Exception):
