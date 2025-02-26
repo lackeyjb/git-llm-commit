@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Generate Conventional Commit messages from your staged changes using an LLM"
 readme = "README.md"
 authors = [
-    { name = "syntax-sherlock", email = "syntax-sherlock@users.noreply.github.com" },
+    { name = "Bryan Lackey", email = "lackeyjb1@users.noreply.github.com" },
 ]
 requires-python = ">=3.12"
 dependencies = ["openai>=1.61.0", "python-dotenv>=1.0.1"]
