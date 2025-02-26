@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import argparse
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -988,8 +989,10 @@ def test_main_environment_error():
     with (
         patch("git_llm_commit.load_dotenv"),
         patch("git_llm_commit.get_api_key", side_effect=OSError("Test error")),
-        patch("sys.argv", ["git-llm-commit"]),
+        patch("argparse.ArgumentParser") as mock_parser,
     ):
+        mock_parser_instance = mock_parser.return_value
+        mock_parser_instance.parse_args.return_value = argparse.Namespace(dynamic=False)
         with pytest.raises(SystemExit) as exc_info:
             main([])
         assert exc_info.value.code == 1
@@ -1001,8 +1004,10 @@ def test_main_unexpected_error():
         patch.dict(os.environ, {"OPENAI_API_KEY": test_key}),
         patch("git_llm_commit.load_dotenv"),
         patch("git_llm_commit.llm_commit", side_effect=RuntimeError("Test error")),
-        patch("sys.argv", ["git-llm-commit"]),
+        patch("argparse.ArgumentParser") as mock_parser,
     ):
+        mock_parser_instance = mock_parser.return_value
+        mock_parser_instance.parse_args.return_value = argparse.Namespace(dynamic=False)
         with pytest.raises(SystemExit) as exc_info:
             main([])
         assert exc_info.value.code == 1
@@ -1014,8 +1019,10 @@ def test_main_success():
         patch.dict(os.environ, {"OPENAI_API_KEY": test_key}),
         patch("git_llm_commit.llm_commit") as mock_llm_commit,
         patch("git_llm_commit.load_dotenv"),
-        patch("sys.argv", ["git-llm-commit"]),
+        patch("argparse.ArgumentParser") as mock_parser,
     ):
+        mock_parser_instance = mock_parser.return_value
+        mock_parser_instance.parse_args.return_value = argparse.Namespace(dynamic=False)
         main([])
         mock_llm_commit.assert_called_once_with(api_key=test_key, dynamic_length=False)
 
@@ -1028,8 +1035,10 @@ def test_main_missing_key():
             "git_llm_commit.get_api_key",
             side_effect=OSError("Missing API key"),
         ),
-        patch("sys.argv", ["git-llm-commit"]),
+        patch("argparse.ArgumentParser") as mock_parser,
     ):
+        mock_parser_instance = mock_parser.return_value
+        mock_parser_instance.parse_args.return_value = argparse.Namespace(dynamic=False)
         with pytest.raises(SystemExit) as exc_info:
             main([])
         assert exc_info.value.code == 1
