@@ -7,6 +7,7 @@ import pytest
 from openai.types.chat import ChatCompletion, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
 
+from git_llm_commit import main
 from git_llm_commit.llm_commit import (
     CONVENTIONAL_COMMIT_TYPES,
     CommitConfig,
@@ -445,7 +446,7 @@ def test_system_message_content_one_sentence():
     assert "<type>[optional scope]: <description>" in system_message
     assert "DO NOT include a body or footer section" in system_message
     assert "single sentence" in system_message
-    
+
     # Verify that the "[optional body]" and "[optional footer(s)]" are NOT present
     assert "[optional body]" not in system_message
     assert "[optional footer(s)]" not in system_message
@@ -981,3 +982,54 @@ def test_generate_commit_message_one_sentence():
     # Generate a message and verify
     result = generator.generate(SAMPLE_DIFF)
     assert result == SAMPLE_COMMIT_MESSAGE
+
+
+def test_main_environment_error():
+    with (
+        patch("git_llm_commit.load_dotenv"),
+        patch("git_llm_commit.get_api_key", side_effect=OSError("Test error")),
+        patch("sys.argv", ["git-llm-commit"]),
+    ):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+
+
+def test_main_unexpected_error():
+    test_key = "test-api-key"
+    with (
+        patch.dict(os.environ, {"OPENAI_API_KEY": test_key}),
+        patch("git_llm_commit.load_dotenv"),
+        patch("git_llm_commit.llm_commit", side_effect=RuntimeError("Test error")),
+        patch("sys.argv", ["git-llm-commit"]),
+    ):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+
+
+def test_main_success():
+    test_key = "test-api-key"
+    with (
+        patch.dict(os.environ, {"OPENAI_API_KEY": test_key}),
+        patch("git_llm_commit.llm_commit") as mock_llm_commit,
+        patch("git_llm_commit.load_dotenv"),
+        patch("sys.argv", ["git-llm-commit"]),
+    ):
+        main()
+        mock_llm_commit.assert_called_once_with(api_key=test_key, dynamic_length=False)
+
+
+def test_main_missing_key():
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        patch("git_llm_commit.load_dotenv"),
+        patch(
+            "git_llm_commit.get_api_key",
+            side_effect=OSError("Missing API key"),
+        ),
+        patch("sys.argv", ["git-llm-commit"]),
+    ):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
