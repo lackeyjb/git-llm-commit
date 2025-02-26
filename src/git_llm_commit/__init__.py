@@ -63,7 +63,7 @@ def main(argv=None) -> None:
     parser.add_argument(
         "--version", "-v", action="version", version=f"git-llm-commit {__version__}"
     )
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     try:
         load_dotenv()
