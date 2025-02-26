@@ -64,7 +64,7 @@ def test_main_unexpected_error():
         patch("git_llm_commit.llm_commit", side_effect=RuntimeError("Test error")),
     ):
         with pytest.raises(SystemExit) as exc_info:
-            main()
+            main([])
         assert exc_info.value.code == 1
 
 
@@ -75,14 +75,14 @@ def test_main_success():
         patch("git_llm_commit.llm_commit") as mock_llm_commit,
         patch("git_llm_commit.load_dotenv"),
     ):
-        main()
+        main([])
         mock_llm_commit.assert_called_once_with(api_key=test_key, dynamic_length=False)
 
 
 def test_main_missing_key():
     with patch.dict(os.environ, {}, clear=True), patch("git_llm_commit.load_dotenv"):
         with pytest.raises(SystemExit) as exc_info:
-            main()
+            main([])
         assert exc_info.value.code == 1
 
 
@@ -94,7 +94,7 @@ def test_main_with_dynamic_flag():
         patch("git_llm_commit.load_dotenv"),
         patch("sys.argv", ["git-llm-commit", "--dynamic"]),
     ):
-        main()
+        main([])
         mock_llm_commit.assert_called_once_with(api_key=test_key, dynamic_length=True)
 
 
@@ -106,7 +106,7 @@ def test_main_with_short_dynamic_flag():
         patch("git_llm_commit.load_dotenv"),
         patch("sys.argv", ["git-llm-commit", "-d"]),
     ):
-        main()
+        main([])
         mock_llm_commit.assert_called_once_with(api_key=test_key, dynamic_length=True)
 
 
@@ -118,5 +118,5 @@ def test_main_without_dynamic_flag():
         patch("git_llm_commit.load_dotenv"),
         patch("sys.argv", ["git-llm-commit"]),
     ):
-        main()
+        main([])
         mock_llm_commit.assert_called_once_with(api_key=test_key, dynamic_length=False)
